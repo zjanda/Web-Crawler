@@ -20,5 +20,3 @@ p = soup.find_all('p')
 
 for para in p:
     print(para.get_text())
-
-print('hello')
