@@ -15,10 +15,10 @@ def print_time(string, start):
 # Download the HTML document
 link = ['https://dataquestio.github.io/web-scraping-pages/simple.html', 'https://forecast.weather.gov/']
 page = requests.get(link[0])
-
 soup = BeautifulSoup(page.content, 'html.parser')
-
 p = soup.find_all('p')
 
 for para in p:
     print(para.get_text())
+
+print('hello')
