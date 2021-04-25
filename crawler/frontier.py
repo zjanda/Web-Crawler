@@ -13,6 +13,10 @@ class Frontier(object):
         self.config = config
         self.to_be_downloaded = list()
         
+        # to record longest page in terms of the number of words
+        self.longest_page_url
+        self.longest_page_word_num
+        
         if not os.path.exists(self.config.save_file) and not restart:
             # Save file does not exist, but request to load save.
             self.logger.info(
