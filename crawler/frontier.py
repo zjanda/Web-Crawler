@@ -5,7 +5,7 @@ from threading import Thread, RLock
 from queue import Queue, Empty
 
 from utils import get_logger, get_urlhash, normalize
-from scraper import is_valid
+from scraper import is_valid, defragment
 
 class Frontier(object):
     def __init__(self, config, restart):
@@ -36,7 +36,11 @@ class Frontier(object):
                     self.add_url(url)
 
     def _parse_save_file(self):
-        ''' This function can be overridden for alternate saving techniques. '''
+        # ''' This function can be overridden for alternate saving techniques. '''
+        for index, url in enumerate(self.save.values()):
+            if url != defragment(url):
+                self.save.values()[index] = defragment(url)
+
         total_count = len(self.save)
         tbd_count = 0
         for url, completed in self.save.values():
@@ -46,6 +50,18 @@ class Frontier(object):
         self.logger.info(
             f"Found {tbd_count} urls to be downloaded from {total_count} "
             f"total urls discovered.")
+
+        # ''' This function can be overridden for alternate saving techniques. '''
+        # total_count = len(self.save)
+        # tbd_count = 0
+        # for url, completed in self.save.values():
+        #     if not completed and is_valid(url):
+        #         self.to_be_downloaded.append(url)
+        #         tbd_count += 1
+        # self.logger.info(
+        #     f"Found {tbd_count} urls to be downloaded from {total_count} "
+        #     f"total urls discovered.")
+
 
     def get_tbd_url(self):
         try:

@@ -14,9 +14,20 @@ def print_time(string, start):
     return time()
 
 
+def defragment(URL):
+    return URL.split('#')[0] if '#' in URL else URL
+
+
 # Download the HTML document
-link = ['https://dataquestio.github.io/web-scraping-pages/simple.html', 'https://forecast.weather.gov/']
+link = ['https://dataquestio.github.io/web-scraping-pages/simple.html', 'https://forecast.weather.gov/#12309182']
+knil = [1, 2, 3]
+
+a = set(link)
+b = set(knil)
+print(bool())
+print(bool(a & b))
 URL = link[1]
+URL = defragment(URL)
 if is_valid_URL(URL):
     # Downloading the webpage
     response = requests.get(URL)
