@@ -2,8 +2,13 @@ import re
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 
+from crawler import frontier
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+
 
 # TODO: later, record ans to all 4 questions
+
 
 def scraper(url, resp):
     links = extract_next_links(url, resp)
@@ -29,6 +34,19 @@ def extract_next_links(url, resp):
 
     data = resp.raw_response.content  # can use .content (contents in bytes) or .text
     soup = BeautifulSoup(data, 'html.parser')
+
+    data = resp.raw_response.content  # can use .content (contents in bytes) or .text
+    soup = BeautifulSoup(data, 'html.parser')
+
+    # find longest page, the following code comes from https://www.geeksforgeeks.org/removing-stop-words-nltk-python/
+    text = ' '.join(soup.stripped_strings);
+    stop_words = set(stopwords.words('english'))
+    text_tokens = word_tokenize(text)
+    filtered_text = [w for w in text_tokens if not w in stop_words]
+
+    if len(filtered_text) > frontier.Frontier.longest_page_word_num:
+        frontier.Frontier.longest_page_url = url
+        frontier.Frontier.longest_page_word_num = len(filtered_text)
 
     result = []
     # Extract all <a> tags, get its 'href' value
