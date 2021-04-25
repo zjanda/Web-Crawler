@@ -10,6 +10,11 @@ def scraper(url, resp):
 
 def extract_next_links(url, resp):
     # TODO: only allow page with high text infomation contents (check piazza @125)
+    # TODO: (question answering)
+    #      1. unique URLs  (discard fragment!)
+    #      2. longest page in terms of the number of words?        beautifulsoup parse 'rawdata'.content  strip string  --> text representation of page
+    #      3. 50 most common words (Ignore English stop words!)   ---> Submit the list of common words ordered by frequency.
+    #      4. How many subdomains in the ics.uci.edu domain?
 
     try:  # filter out page with no data
         data = resp.raw_response.content # can use .content (contents in bytes) or .text
@@ -26,8 +31,10 @@ def extract_next_links(url, resp):
     return result
 
 def is_valid(url):
-    #TODO: 1. filter out traps
+    #TODO: 1. filter out inifinite traps
     #      2. filter out sets of similar pages
+    #      3. avoid crawling very large file
+
 
     try:
         parsed = urlparse(url)
