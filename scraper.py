@@ -1,86 +1,117 @@
 import re
+import string
+from collections import defaultdict
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 
 from crawler import frontier
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
+from urllib.parse import urljoin
+from urllib.parse import urldefrag
 
-
-# TODO: later, record ans to all 4 questions
+# 1. record pages that are crawled (did in frontier)
+# 2. record longest page in terms of the number of words
+longest_page_url = ""
+longest_page_word_count = 0
+# 3. most common words
+words_freq = defaultdict(int)
+# 4. how many subdomains
+visited_subdomains = dict()
 
 
 def scraper(url, resp):
     links = extract_next_links(url, resp)
+
+    # record 4 questions into file
+    with open("my_record.txt", "w", encoding="utf-8") as file:
+        file.write("Longest Page URL:" + longest_page_url + "\n")
+        file.write("Longest Page URL Length:" + str(longest_page_word_count) + "\n")
+        file.write("Most common words:" + str(words_freq) + "\n")
+        file.write("Visited Domain:" + str(visited_subdomains) + "\n")
+    file.close()
+
     return [link for link in links if is_valid(link)]
-
-
-def defragment(URL):
-    return URL.split('#')[0] if '#' in URL else URL
 
 
 def extract_next_links(url, resp):
     # TODO: only allow page with high text information contents (check piazza @125)
-    # TODO: (question answering)
-    #      1. unique URLs  (discard fragment!) # Done
-    #      2. longest page in terms of the number of words?        beautifulsoup parse 'rawdata'.content  strip string  --> text representation of page
-    #      3. 50 most common words (Ignore English stop words!) -> Submit the list of common words ordered by frequency.
-    #      4. How many subdomains in the ics.uci.edu domain?
+    global longest_page_url, longest_page_word_count, words_freq, visited_subdomains
 
-    try:  # filter out page with no data
-        data = resp.raw_response.content  # can use .content (contents in bytes) or .text
-    except:
+    # filter out invalid page or page with no data
+    if resp.status != 200 or resp.raw_response.content is None:
         return []
 
-    data = resp.raw_response.content  # can use .content (contents in bytes) or .text
-    soup = BeautifulSoup(data, 'html.parser')
-
-    data = resp.raw_response.content  # can use .content (contents in bytes) or .text
+    data = resp.raw_response.content
     soup = BeautifulSoup(data, 'html.parser')
 
     # find longest page, the following code comes from https://www.geeksforgeeks.org/removing-stop-words-nltk-python/
-    text = ' '.join(soup.stripped_strings);
+    text = ' '.join(soup.stripped_strings)
     stop_words = set(stopwords.words('english'))
     text_tokens = word_tokenize(text)
-    filtered_text = [w for w in text_tokens if not w in stop_words]
+    filtered_text = []
 
-    if len(filtered_text) > frontier.Frontier.longest_page_word_num:
-        frontier.Frontier.longest_page_url = url
-        frontier.Frontier.longest_page_word_num = len(filtered_text)
+    # record most common words
+    for w in text_tokens:
+        if w not in stop_words and w not in string.punctuation:
+            words_freq[w] += 1
+            filtered_text.append(w)
 
-    result = []
+    if len(filtered_text) > longest_page_word_count:
+        longest_page_url = url
+        longest_page_word_count = len(filtered_text)
+
+    # record subdomain
+    subdomain = urlparse(url).hostname
+    if subdomain not in visited_subdomains:
+        visited_subdomains[subdomain] = 1
+    else:
+        visited_subdomains[subdomain] += 1
+
+    result_links = []
     # Extract all <a> tags, get its 'href' value
     for link in soup.find_all('a'):
-        result.append(link.get('href'))
-    return result
+        link = urljoin(url, link.get('href'))
+        link = urldefrag(link)[0]  # defragment the url
+        result_links.append(link)
+    return result_links
 
 
 def is_valid(url):
-    # TODO: 1. filter out infinite traps
-    #       2. filter out sets of similar pages
-    #       3. avoid crawling very large file
+    # TODO: 1. filter out sets of similar pages
+    #       2. avoid low information value
 
     try:
         parsed = urlparse(url)
         if parsed.scheme not in {"http", "https"}:
             return False
 
+        if parsed.hostname is None:
+            return False
+
+        # filter out traps
+        avoid_crawling = ["#", "?", "%", "+", "&", "@", "calendar", "files", "pdf", "txt", "jpg",
+                          "war", "apk", "img", "sql", "bib", "pps", "photo", "attachment", ".odc",
+                          "wics.ics.uci.edu/events/", "www.ics.uci.edu/ugrad/honors/index.php/",
+                          "ds_store", "www.ics.uci.edu/honors/", "balluru.thesis", "/uploads/",
+                          ".py", "largefam3-haplo", "~dechter/r", ".bam", "archive.ics.uci.edu/ml/00"]
+        for a in avoid_crawling:
+            if a in url.lower():
+                return False
+
+        # filter out repeated path name
+        path = parsed.path.lower()
+        path_list = list(filter(lambda p: p != '', path.split('/')))   # avoid "//" in path
+        if len(set(path_list)) != len(path_list):
+            return False
+
         # restrict to only 5 allowed domains
-        DOMAIN_LIST = [
-            '.ics.uci.edu',
-            '.cs.uci.edu',
-            '.informatics.uci.edu',
-            'today.uci.edu/department/information_computer_sciences'
-        ]
-
-        for domain in DOMAIN_LIST:
-            if domain in parsed.hostname:
-                hostname_valid = True
-                break
-            else:
-                hostname_valid = False
-
-        if parsed.hostname is None or not hostname_valid:
+        hostname = parsed.hostname
+        if not ('.ics.uci.edu' in hostname or
+                '.cs.uci.edu' in hostname or
+                '.informatics.uci.edu' in hostname or
+                '.stat.uci.edu' in hostname or
+                'today.uci.edu/department/information_computer_sciences' in hostname):
             return False
 
         return not re.match(
@@ -91,7 +122,7 @@ def is_valid(url):
             + r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
             + r"|epub|dll|cnf|tgz|sha1"
             + r"|thmx|mso|arff|rtf|jar|csv"
-            + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())
+            + r"|rm|smil|wmv|swf|wma|zip|rar|gz|ppsx)$", parsed.path.lower())  # added ppsx
 
     except TypeError:
         print("TypeError for ", parsed)
